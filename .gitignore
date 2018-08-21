@@ -1,7 +1,14 @@
+
+# Compiler-generated files
 *.o
+*.out
+
+
+# Data
 *.dat
-
-
-*.pdf
 *.mat
 *.bmp
+
+
+# docs
+*.pdf

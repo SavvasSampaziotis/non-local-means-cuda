@@ -181,7 +181,7 @@ endif
 
 $(TARGET): array_utilities.o nlm_cuda.o src/$(TARGET).cu
 	@echo Compiling $@ ...
-	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $(OBJ) $(LIBRARIES)
+	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@.out $(OBJ) $(LIBRARIES)
 	@echo ' '
 
 array_utilities.o: src/array_utilities.cu
@@ -196,14 +196,16 @@ nlm_cuda.o: src/nlm_cuda.cu
 
 test_bed: array_utilities.o nlm_cuda.o src/test_bed.cu
 	@echo Compiling $@ ...
-	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $(OBJ) $(LIBRARIES)
+	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@.out $(OBJ) $(LIBRARIES)
 	@echo ' '
+	./test_bed.out ../data/test.dat
 
 run: build
-	$(EXEC) ./$(TARGET) ../data/house.dat 
+	$(EXEC) ./$(TARGET).out ../data/house.dat 
 
 
 clean:
 	rm -f *.o 
+	rm -f *.out 
 	
 clobber: clean
