@@ -21,13 +21,21 @@
 	Maximum Patch dimensions:  512x512
 
 	WARNING: patch window must have odd x and y dimensions (1,3,5...7)
-	
+
 */
 __global__
 void generate_3D_cube(float *d_image, float *d_patchCube, int H, int W,  int pH, int pW);
 
 
+/*
+	Applies Gaussian Mask on each patch. 
 
+	The kernel is called with a
+		+ a 2D [WxH] grid of block
+		+ a 2D [pWxpH] block of threads
+*/
+__global__
+void apply_gaussian_filter(float *d_patchCube, int pH, int pW, float patchSigma_h, float patchSigma_w);
 
 
 
