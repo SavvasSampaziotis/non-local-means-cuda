@@ -24,3 +24,26 @@ void read_dataset(int* H, int* W, float** data, const char* filename)
 	
 	fclose(fp);
 }
+
+
+
+
+
+void print_array(int H, int W, float* data)
+{
+	int i,j;
+	printf("\n--------------------\n");
+	for(i=0; i<H; i++)
+	{
+		for(j=0; j<W; j++)
+		{
+			 printf("%f ", data[i*W+j]);
+		}
+		printf("\n");
+	}
+		
+
+}
+
+
+

@@ -19,4 +19,12 @@ void read_dataset(int* H, int* W, float** data, const char* filename);
 
 
 
+/*
+	Prints array 1D of N*D length on screen.
+
+	The dimensions of the printed array are NxD.  
+*/
+void print_array(int N, int D, float* data);
+
+
 #endif

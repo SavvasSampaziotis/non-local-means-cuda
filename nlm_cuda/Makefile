@@ -194,7 +194,7 @@ nlm_cuda.o: src/nlm_cuda.cu
 	$(EXEC) $(NVCC) $(ALL_CCFLAGS) $(GENCODE_FLAGS) $(LIBRARIES) -o $@ -c $<
 	@echo ' '
 
-test_bed: array_utilities.o nlm_cuda.o src/test_bed.cu
+test_bed: clear_screen array_utilities.o nlm_cuda.o src/test_bed.cu
 	@echo Compiling $@ ...
 	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@.out $(OBJ) $(LIBRARIES)
 	@echo ' '
