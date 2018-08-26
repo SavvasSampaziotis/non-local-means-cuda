@@ -6,13 +6,14 @@
 
 #include "nlm_cuda.h"
 
-
+#include "time_measure.h"
 int H,W;
 float *data;
 
 void test_generate_3d_cube();
 void test_apply_gaussianfilt();
-
+void test_calc_dist();
+void compare_calcdist();
 
 int main(int argc, char** argv)
 {
@@ -31,65 +32,142 @@ int main(int argc, char** argv)
 
 	// test_generate_3d_cube();	
 
-	test_apply_gaussianfilt();
-	// 
+	// test_apply_gaussianfilt();
+
+	test_calc_dist();
+	
+	compare_calcdist();
 
 	// Free data
 	free(data);
 	return 0;
 }
 
-
-
-
-void test_generate_3d_cube(){
+void test_calc_dist(){
 	
-	printf("Generate 3D Cube\n" );
+	printf("Test Dist Matrix Calculation of N vectors of length M\n" );
 
-	float* d_dist; // Memory Container of the 2D H-by-W image (in 1-by-HW 1D array)
 	float* d_patchCube; // Memory Container of the 3D H-by-W-by-patchSize cube containing the (in 1-by-HW 1D array)
+	float* d_dist; // Memory Container of the 2D HW-by-HW dist_matrix of all patches
 
-	int H = 4, W = 5;
-	int N = H*W;
-	int pH = 3, pW=3; 
-	int M = pH*pW;
+	int N = 10;
+	int M = 4;
+	float sigma = 10;
 
-	float* testArray = (float*) malloc(N*sizeof(float));
+	// Construct Test 3D Cube 
+	float* testArray = (float*) malloc(M*N*sizeof(float));
 	for(int i=0; i<N*M; i++)
 		testArray[i] = i+1;
 
 	cudaMalloc( (void**) &d_patchCube, M*N*sizeof(float) );
-	cudaMemcpy(d_patchCube, testArray, N*sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_patchCube, testArray, M*N*sizeof(float), cudaMemcpyHostToDevice);
 	
-	cudaMalloc( (void**) &d_dist, N*sizeof(float) );
+	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
 	
 	//////////////
-	dim3 blockDim2D	( pW, pH, 1 ); 
-  	dim3 gridDim2D	( W, H, 1 ); 
-	calc_dist_matrix<<< gridDim2D, blockDim2D >>> (d_dist, d_patchCube, H,W, pH,pW);
+	int b = 50;
+	int g = ceil(N/b);
+	dim3 blockDim2D	( b, b, 1 ); 
+  	dim3 gridDim2D	( g, g, 1 ); 
+	calc_dist_matrix<<< gridDim2D, blockDim2D >>> (d_dist, d_patchCube, N, M, sigma);
+	
 
+	dim3 blockDim2D_SH	( 2*M, 1, 1 ); 
+  	dim3 gridDim2D_SH	( N, N, 1 ); 
+	calc_dist_matrix_SHARED<<< gridDim2D_SH, blockDim2D_SH >>> (d_dist, d_patchCube, sigma);
 
 	////////////// Print Results	
 	printf("Test Array:\n");
-	print_array(H,W,testArray);
+	if (N<=10)
+		print_array(N,M,testArray);
 	
 	float* dist = (float*) malloc(N*N*sizeof(float)) ;	
 	cudaMemcpy(dist, d_dist, N*N*sizeof(float), cudaMemcpyDeviceToHost);
 	
-	if (M < 10)
-	{
-		printf("pHxpW Patches:\n");
-		print_array(H*W, pH*pW, patchCube);
-	}
+	if (N<=10)
+		print_array(N, N, dist);
 	else
-		printf("Array too big to print in console\n");
-
+		printf("Matrix to big to print in console\n");
+// print_array(N, N, dist);
+	////////////// Check results
+	// Check if brute force result is equal to that of the Cuda kernel 
+	double MSE = 0;
+	for(int i=0; i<N; i++)
+		for(int j=0; j<N; j++)
+		{
+			float D=0;
+			for(int m=0; m<M; m++)
+			{
+				float a,b;
+				a = testArray[i*M+m];
+				b = testArray[j*M+m]; 	
+				D += (a-b)*(a-b);
+			}
+			D = exp(-D/sigma/sigma);
+			MSE +=  (dist[i*N+j]-D)*(dist[i*N+j]-D);
+		}
+	MSE = MSE/N/N;	
+	printf("Mean Square Error = %lf\n", MSE);
+	
 	//// Clean Up
 	cudaFree(d_dist);
 	cudaFree(d_patchCube);
 	free(dist);
 }
 
+
+
+void compare_calcdist()
+{
+	printf("Test Dist Matrix Calculation of N vectors of length M\n" );
+
+	float* d_patchCube; // Memory Container of the 3D H-by-W-by-patchSize cube containing the (in 1-by-HW 1D array)
+	float* d_dist; // Memory Container of the 2D HW-by-HW dist_matrix of all patches
+
+	int N = 500;
+	int M = 40;
+	float sigma = 10;
+
+	// Construct Test 3D Cube 
+	float* testArray = (float*) malloc(M*N*sizeof(float));
+	for(int i=0; i<N*M; i++)
+		testArray[i] = i+1;
+
+	cudaMalloc( (void**) &d_patchCube, M*N*sizeof(float) );
+	cudaMemcpy(d_patchCube, testArray, M*N*sizeof(float), cudaMemcpyHostToDevice);
+	
+	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
+	
+	//////////////
+	int K = 100;
+
+	TimeInterval ti;
+	tic(&ti);
+	for(int i=0; i<K; i++)
+	{
+		dim3 blockDim2D	( 2*M, 1, 1 ); 
+	  	dim3 gridDim2D	( N, N, 1 ); 
+		calc_dist_matrix_SHARED<<< gridDim2D, blockDim2D >>> (d_dist, d_patchCube, sigma);
+	}
+	double T1 = toc(&ti);
+	T1 = T1;
+
+	tic(&ti);
+	for(int i=0; i<K; i++)
+	{
+
+		dim3 blockDim2D	( 1, 1, 1 ); 
+	  	dim3 gridDim2D	( N, N, 1 ); 
+		calc_dist_matrix<<< gridDim2D, blockDim2D >>> (d_dist, d_patchCube,N, M, sigma);
+	}
+	double T2 = toc(&ti);
+	T2 = T2;
+	
+	printf("Shared = %f sec \t Simple = %f sec\n", T1, T2 );
+	//// Clean Up
+	cudaFree(d_dist);
+	cudaFree(d_patchCube);
+}
 
 
 
@@ -99,7 +177,8 @@ void test_apply_gaussianfilt(){
 
 	float* d_patchCube; // Memory Container of the 3D H-by-W-by-patchSize cube containing the (in 1-by-HW 1D array)
 
-	float patchSigma = 1;
+	float patchSigmaH = 1;
+	float patchSigmaW = 2;
 	int pH = 7, pW = 5; 
 	
 	int M = pH*pW;
@@ -118,7 +197,7 @@ void test_apply_gaussianfilt(){
 	dim3 blockDim2D	( pW, pH, 1 ); 
   	dim3 gridDim2D	( W, H, 1 ); 
 	
-	apply_gaussian_filter<<< gridDim2D, blockDim2D >>>( d_patchCube,  pH, pW,  1, 2);
+	apply_gaussian_filter<<< gridDim2D, blockDim2D >>>( d_patchCube,  pH, pW,  patchSigmaH, patchSigmaW);
 
 
 	////////////// Print Results

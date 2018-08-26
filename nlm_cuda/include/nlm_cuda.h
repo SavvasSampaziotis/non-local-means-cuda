@@ -38,11 +38,19 @@ __global__
 void apply_gaussian_filter(float *d_patchCube, int pH, int pW, float patchSigma_h, float patchSigma_w);
 
 
+/*
+	Calcs the distance matrix of all the stuff
+*/
+__global__
+void calc_dist_matrix(float *d_distMatrix, float *d_patchCube, int N, int M, float sigma);
 
 
 
+/*
 
-
+*/
+__global__
+void calc_dist_matrix_SHARED(float *d_distMatrix, float *d_patchCube,  float sigma);
 
 
 
