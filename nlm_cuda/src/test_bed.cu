@@ -48,16 +48,15 @@ int main(int argc, char** argv)
 void calc_sum_reduction()
 {
 	int N = 100;
-	int Bx = 16;
 	
 	float *testArray = (float*) malloc(N*N*sizeof(float));
 	for(int i=0; i<N*N; i++)
 		testArray[i] = i+1; 
-
 	float *d_dist;
 	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
 	cudaMemcpy(d_dist, testArray, N*N*sizeof(float), cudaMemcpyHostToDevice);
 
+/*
 	float *d_rsum_lvl1;
 	cudaMalloc( (void**) &d_rsum_lvl1, N*Bx*sizeof(float) );
 
@@ -69,18 +68,26 @@ void calc_sum_reduction()
 	{
 		dim3 blockDim2D	( Bx, 1, 1 ); 
 	  	dim3 gridDim2D	( blockNum, N, 1 ); 
-	  	rowmax<<<gridDim2D,blockDim2D>>>(N, d_dist, d_rsum_lvl1);
+	  	rowsum<<<gridDim2D,blockDim2D>>>(N, d_dist, d_rsum_lvl1);
+	  	// rowmax<<<gridDim2D,blockDim2D>>>(N, d_dist, d_rsum_lvl1);
 	 
 	}
 	// Level 1 Reduction: 1 Block remaining to reduct.
 	{
 		dim3 blockDim2D	( blockNum,1, 1 ); 
 	  	dim3 gridDim2D	( 1, N, 1 ); 
-	  	rowmax<<<gridDim2D,blockDim2D>>>(N, d_dist, d_rsum);
+	  	rowsum<<<gridDim2D,blockDim2D>>>(N, d_dist, d_rsum);
+	  	// rowmax<<<gridDim2D,blockDim2D>>>(N, d_dist, d_rsum);
 	}
+*/
+	ReductionCache rc;
+	init_reduction_cache(N,N,16,&rc);
+
+	// row_sum_WR(N, d_dist, &rc);
+	row_max_WR(N, d_dist, &rc);
 
 	float *rsum = (float*) malloc(N*sizeof(float));
-	cudaMemcpy(rsum, d_rsum, N*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(rsum, rc.d_sum, N*sizeof(float), cudaMemcpyDeviceToHost);
 
   	// **** Check Result **** //
   	float MSE = 0;
@@ -95,10 +102,13 @@ void calc_sum_reduction()
 		MSE+=e*e;
 	}
 	MSE = MSE/N;
-	print_array(N,1,rsum);
-
-
+	// print_array(N,1,rsum);
 	printf("MSE = %f\t%s\n", MSE, (MSE==0)? "PASSED":"FAILED" );
+	
+	free(rsum);
+	free(testArray);
+	cudaFree(d_dist);
+	delete_reduction_cache(&rc);
 }
 
 void test_calc_dist(){
