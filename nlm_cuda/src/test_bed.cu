@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 #include "nlm_cuda.h"
-
+#include "reduction.h"
 #include "time_measure.h"
 int H,W;
 float *data;
@@ -14,6 +14,7 @@ void test_generate_3d_cube();
 void test_apply_gaussianfilt();
 void test_calc_dist();
 void compare_calcdist();
+void calc_sum_reduction();
 
 int main(int argc, char** argv)
 {
@@ -34,13 +35,70 @@ int main(int argc, char** argv)
 
 	// test_apply_gaussianfilt();
 
-	test_calc_dist();
+	// test_calc_dist();
 	
-	compare_calcdist();
+	// compare_calcdist();
+
+	calc_sum_reduction();
 
 	// Free data
 	free(data);
 	return 0;
+}
+void calc_sum_reduction()
+{
+	int N = 100;
+	int Bx = 16;
+	
+	float *testArray = (float*) malloc(N*N*sizeof(float));
+	for(int i=0; i<N*N; i++)
+		testArray[i] = i+1; 
+
+	float *d_dist;
+	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
+	cudaMemcpy(d_dist, testArray, N*N*sizeof(float), cudaMemcpyHostToDevice);
+
+	float *d_rsum_lvl1;
+	cudaMalloc( (void**) &d_rsum_lvl1, N*Bx*sizeof(float) );
+
+	float *d_rsum;
+	cudaMalloc( (void**) &d_rsum, N*sizeof(float) );
+	
+	int blockNum = exp2f(floor(log2f(N/Bx)));
+	// Level 2 Reduction: N/Bx Blocks
+	{
+		dim3 blockDim2D	( Bx, 1, 1 ); 
+	  	dim3 gridDim2D	( blockNum, N, 1 ); 
+	  	rowmax<<<gridDim2D,blockDim2D>>>(N, d_dist, d_rsum_lvl1);
+	 
+	}
+	// Level 1 Reduction: 1 Block remaining to reduct.
+	{
+		dim3 blockDim2D	( blockNum,1, 1 ); 
+	  	dim3 gridDim2D	( 1, N, 1 ); 
+	  	rowmax<<<gridDim2D,blockDim2D>>>(N, d_dist, d_rsum);
+	}
+
+	float *rsum = (float*) malloc(N*sizeof(float));
+	cudaMemcpy(rsum, d_rsum, N*sizeof(float), cudaMemcpyDeviceToHost);
+
+  	// **** Check Result **** //
+  	float MSE = 0;
+  	for(int i=0; i<N; i++)
+	{	
+		float sum = 0;
+		for(int j=0; j<N; j++)
+			// sum+=testArray[i*N+j];
+			sum = (sum>testArray[i*N+j])? sum:testArray[i*N+j];
+		// printf("\t%f\n", sum );		
+		float e = (sum - rsum[i]);
+		MSE+=e*e;
+	}
+	MSE = MSE/N;
+	print_array(N,1,rsum);
+
+
+	printf("MSE = %f\t%s\n", MSE, (MSE==0)? "PASSED":"FAILED" );
 }
 
 void test_calc_dist(){

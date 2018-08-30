@@ -1,5 +1,5 @@
 
-
+#include "reduction.h"
 
 /*
 	Source: https://cs.calvin.edu/courses/cs/374/CUDA/CUDA-Thread-Indexing-Cheatsheet.pdf
@@ -128,5 +128,5 @@ void calc_dist_matrix(float *d_distMatrix, float *d_patchCube, int N, int M, flo
 		D += (a-b)*(a-b);
 	}
 	d_distMatrix[i*N+j] = exp(-D/sigma/sigma); // pdist includes the 1/M^2 factor in the norm
-
 }
+
