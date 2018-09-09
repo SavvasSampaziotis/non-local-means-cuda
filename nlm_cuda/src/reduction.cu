@@ -36,7 +36,7 @@ void reduction_invoker(int N, float* d_A, /*out*/ ReductionCache* rc, int op )
 		int threads_num2 = exp2f(floor(log2f(rc->reduced_vec_length/rc->rowNum))); 
 		if(threads_num2>512)
 			threads_num2=512;
-		//printf("THREADS: %d RED_VEC %d\n", threads_num2, rc->reduced_vec_length/rc->rowNum );
+		// printf("THREADS: %d RED_VEC %d\n", threads_num2, rc->reduced_vec_length/rc->rowNum );
 		
 		dim3 gridDim2(1,rc->rowNum,1);
 		dim3 blockDim2(threads_num2,1,1);
@@ -161,9 +161,8 @@ void init_reduction_cache(int rowLength, int rowNum, int threads_num, /*out*/ Re
 	rc->reduced_vec_length = rowNum*blocks_num; // ronNum * (number of blocks per row) 
 	
 	rc->cache_size = rowNum*threads_num*sizeof(float);
-	if(rc->cache_size > 1024*16) // cache > 16 KB. CUCA 1.x allows max sm 16 per MP
-		printf("[WARNING]:\t[INIT_REDUCTION_CACHE]:\t \
-			Shared Memory size too large: %lu\n",\ rc->cache_size);
+	// if(rc->cache_size > 1024*16) // cache > 16 KB. CUCA 1.x allows max sm 16 per MP
+		//printf("[WARNING]:\t[INIT_REDUCTION_CACHE]:\tShared Memory size too large: %lu\n",\ rc->cache_size);
 
 	if(blocks_num>1)  
 		cudaMalloc((void**) &(rc->d_reduced_vec), rc->reduced_vec_length*sizeof(float));

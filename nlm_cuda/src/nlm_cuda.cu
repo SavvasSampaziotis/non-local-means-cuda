@@ -1,6 +1,10 @@
 
 #include "reduction.h"
 
+#include <float.h>
+
+// #define FLT_MIN 1.175494e-38
+
 /*
 	Source: https://cs.calvin.edu/courses/cs/374/CUDA/CUDA-Thread-Indexing-Cheatsheet.pdf
 */
@@ -23,6 +27,18 @@ int getGlobalIdx_2D_3D()
 }
 
 
+__device__
+int symmetric_index_padding(int i, int N)
+{
+	if ( i < 0 )	
+		return -i;
+	else if ( i < N )
+		return i;
+	else
+		return N-(i-N)-1;
+		// return N-1;
+}
+
 __global__
 void generate_3D_cube(float *d_image, float *d_patchCube, int H, int W, int pH, int pW)
 {
@@ -35,14 +51,22 @@ void generate_3D_cube(float *d_image, float *d_patchCube, int H, int W, int pH, 
 	int im_i = blockIdx.y;
 	int im_j = blockIdx.x;
 
+ 	if ( !( (im_i<H)&&(im_j<W) ) )
+ 		return;
+
 	int i = im_i+patch_i;
 	int j = im_j+patch_j;
 
-	if ( (i>=0) && (j>=0) && (i<H) && (j<W) )
-		d_patchCube[k] = d_image[ i*W + j ];
-	else
-		d_patchCube[k] = 0; // this is the zero-padding occuring in array boundaries...
+	i = symmetric_index_padding(i,H);
+	j = symmetric_index_padding(j,W);
+	d_patchCube[k] = d_image[ i*W + j ];
+	// d_patchCube[k] = i*W + j;
 
+
+	// if ( (i>=0) && (j>=0) && (i<H) && (j<W) )
+	// 	d_patchCube[k] = d_image[ i*W + j ];
+	// else
+	// 	d_patchCube[k] = 0; // this is the zero-padding occuring in array boundaries...
 }
 
 __device__
@@ -51,7 +75,7 @@ float gaussian2D(float x, float y, float s_x, float s_y)
 	float a = x*x/(s_x*s_x);
 	float b = y*y/(s_y*s_y);
 
-	return expf( -(a+b)/2 );
+	return exp( -(a+b)/2 );
 }
 
 
@@ -71,41 +95,6 @@ void apply_gaussian_filter(float *d_patchCube, int pH, int pW, float patchSigma_
 	d_patchCube[k] = gaussCoeff*d_patchCube[k];
 }
 
-// NOT WORKING
-__global__
-void calc_dist_matrix_SHARED(float *d_distMatrix, float *d_patchCube,  float sigma)
-{
-	extern __shared__ float patch_i[];
-	//extern __shared__ float patch_j[];
-
-	int i = blockIdx.y;
-	int j = blockIdx.x;
-	int tid = threadIdx.x;
-
-	// Block has size [M,1], where M is the number of pixels in a patch
-	int M = blockDim.x/2;
-	int N = gridDim.x;
-
-	//__syncthreads();
-	// Efficient Coalesced load of the i-th and j-th vector! 
-	if(tid < M)
-		patch_i[tid] = d_patchCube[i*M+tid];
-	else
-		patch_i[tid] = d_patchCube[j*M+(tid-M)];
-	__syncthreads();
-	
-	// Thread 0 will sum the diff of the two patches, thus calculating their euclidean norm. 
-	if (tid == 0)
-	{
-		float D = 0;
-		for(int m=0; m < M; m++)
-			// D += (patch_i[m]-patch_j[m])*(patch_i[m]-patch_j[m]); 
-			D += (patch_i[m]-patch_i[M+m])*(patch_i[m]-patch_i[M+m]); 
-
-		d_distMatrix[i*N+j] = expf(-D/sigma/sigma); // pdist includes the 1/M^2 factor in the norm
-	}
-	
-}
 
 __global__
 void calc_dist_matrix(float *d_distMatrix, float *d_patchCube, int N, int M, float sigma)
@@ -127,6 +116,57 @@ void calc_dist_matrix(float *d_distMatrix, float *d_patchCube, int N, int M, flo
 		b = d_patchCube[j*M+m];
 		D += (a-b)*(a-b);
 	}
-	d_distMatrix[i*N+j] = exp(-D/sigma/sigma); // pdist includes the 1/M^2 factor in the norm
+
+	d_distMatrix[i*N+j] = exp(-D/sigma/sigma); 
 }
 
+__global__
+void clip_dist_diag(float* d_dist, float* d_diag, int N)
+{
+	// int tid = blockIdx.x*gridDim.x + threadIdx.x;
+	int tid = getGlobalIdx_2D_2D();
+	
+	// Incase we oversubscribe threads/blocks
+	if(tid < N)
+	{
+		if(d_diag ==0)
+			d_dist[tid*N+tid] = 0;
+		else
+		{
+			float d = d_diag[tid];
+			d_dist[tid*N+tid] = ( (d > FLT_MIN) ?  d:FLT_MIN) ;
+		}	
+	}
+}
+
+__global__
+void multi_mat_vector_row(float* d_A, float* d_x, /*out*/ float* d_B, int N)
+{
+	int i = blockIdx.y*blockDim.y + threadIdx.y;
+	int j = blockIdx.x*blockDim.x + threadIdx.x;
+
+	// For efficient use of the cuda kernels, we should check for oversubscribtion 
+	if( (i>=N) || (j>=N) )
+		return;
+
+	d_B[i*N+j] = d_A[i*N+j]*d_x[j]; 
+	// d_B[i*N+j] = 0; //d_x[j]; 
+
+}
+
+
+
+__global__
+void div_vector(float* d_A, float* d_x, /*out*/ float* d_B, int N)
+{
+	int i = blockIdx.x*blockDim.x + threadIdx.x;
+
+	// For efficient use of the cuda kernels, we should check for oversubscribtion 
+	if(i >= N)
+		return;
+
+	if(d_x[i] >  FLT_MIN)
+		d_B[i] = d_A[i]/d_x[i]; 
+	else
+		d_B[i] = d_A[i]/FLT_MIN; 
+}

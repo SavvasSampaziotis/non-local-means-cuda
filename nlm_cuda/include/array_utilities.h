@@ -6,6 +6,10 @@
 #ifndef ARRAY_UTILITIES_H
 #define  ARRAY_UTILITIES_H
 
+
+
+void write_datfile(int N, int D, float* data);
+
 /*
 Reads binary file of floats.  
 

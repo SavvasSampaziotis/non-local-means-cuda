@@ -53,5 +53,20 @@ __global__
 void calc_dist_matrix_SHARED(float *d_distMatrix, float *d_patchCube,  float sigma);
 
 
+/*
+	Replaces the diagonal of square matrix d_dist with elements of vector d_diag
+
+	Invoked with 1-D grid and 1-D blocks, matching the length of the d_diag vactor and higher
+*/
+__global__
+void clip_dist_diag(float* d_dist, float* d_diag, int N);
+
+
+
+__global__
+void multi_mat_vector_row(float* d_A, float* d_x, /*out*/ float* d_B, int N);
+
+__global__
+void div_vector(float* d_A, float* d_x, /*out*/ float* d_B, int N);
 
 #endif

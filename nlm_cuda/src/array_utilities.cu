@@ -2,6 +2,24 @@
 #include <stdlib.h>
 
 
+void write_datfile(int N, int D, float* data)
+{
+	FILE *fp = fopen( "../data/out.bin", "w+");
+	
+	if(fp < 0)
+	{
+		printf("ERROR OPENING DATA FILE\n");
+		return;
+	}
+
+	fwrite(&N, 1, sizeof(int), fp);
+	fwrite(&D, 1, sizeof(int), fp);
+	fwrite(data, D*N, sizeof(float), fp);
+
+	fclose(fp);
+}
+
+
 void read_dataset(int* H, int* W, float** data, const char* filename)
 {
 	FILE *fp = fopen(filename, "r");
@@ -20,7 +38,7 @@ void read_dataset(int* H, int* W, float** data, const char* filename)
 	*data = (float*) malloc( L*sizeof(float));
 	fread(*data, L, sizeof(float), fp);
 
-	printf("\n[READ_IMAGEDATA]: %s\tH=%d\tW=%d Read Succesfully\n",filename, *H,*W);
+	// printf("\n[READ_IMAGEDATA]: %s\tH=%d\tW=%d Read Succesfully\n",filename, *H,*W);
 	
 	fclose(fp);
 }
@@ -32,7 +50,7 @@ void read_dataset(int* H, int* W, float** data, const char* filename)
 void print_array(int H, int W, float* data)
 {
 	int i,j;
-	printf("\n--------------------\n");
+	// printf("\n--------------------\n");
 	for(i=0; i<H; i++)
 	{
 		for(j=0; j<W; j++)
