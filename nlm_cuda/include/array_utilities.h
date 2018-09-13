@@ -8,7 +8,7 @@
 
 
 
-void write_datfile(int N, int D, float* data);
+void write_datfile(int N, int D, float* data, const char *name);
 
 /*
 Reads binary file of floats.  

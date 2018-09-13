@@ -206,7 +206,7 @@ test_bed: clear_screen array_utilities.o reduction.o nlm_cuda.o src/test_bed.cu
 	./test_bed.out ../data/test.dat
 
 run: build
-	$(EXEC) ./$(TARGET).out ../data/house32.dat > ../data/out.dat
+	$(EXEC) ./$(TARGET).out ../data/house8.dat
 
 clean:
 	rm -f *.o 

@@ -1,8 +1,6 @@
+function X =parse_data_bin(filename)
 
-clear;
-
-fileID = fopen('../data/out.bin', 'r+');
-
+fileID = fopen(filename, 'r+');
 
 H = fread(fileID, 1, 'int32');
 W = fread(fileID, 1, 'int32');
@@ -11,4 +9,4 @@ fclose(fileID);
 
 X = reshape(X,H,W);
 
-image(X)
+end

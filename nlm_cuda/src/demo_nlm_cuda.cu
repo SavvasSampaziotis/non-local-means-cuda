@@ -1,31 +1,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 #include "array_utilities.h"
 #include "reduction.h"
 #include "nlm_cuda.h"
 
+int i=0;
 
-void debug_print(int N, int M, float* d_ptr)
+void debug_print(int N, int M, float* d_ptr, const char* fullname)
 {
 	float *temp = (float*) malloc(M*N*sizeof(float));
 	cudaMemcpy(temp, d_ptr, M*N*sizeof(float), cudaMemcpyDeviceToHost);
-	print_array(N,M,temp);
+	// print_array(N,M,temp);
+
+	// printf("%s\n", fullname);
+	write_datfile(N,M,temp, fullname);
 }
 
 int main(int argc, char** argv)
 {
 	int patchSize_H = 5;
 	int patchSize_W = 5;
-	float patchSigmaH = 1.6667;
-	float patchSigmaW = 1.6667;
-	float sigma = 0.1;
+	float patchSigmaH = 1.66;
+	float patchSigmaW = 1.66;
+	float sigma = 0.1f;
 
 	char* filename;
 	if(argc == 2)
 	{
-		// printf("file chosen: %s", argv[1]);
+		printf("file chosen: %s", argv[1]);
 		filename = argv[1];
 	}
 	else
@@ -56,10 +59,13 @@ int main(int argc, char** argv)
 	// float filtSigma
 	// float d_filtSigma
 
+	printf("%s\n", "savvas");
 
 	/* Read Data */
 	read_dataset(&H, &W, &image, filename);
 	image2 = (float*) malloc(H*W*sizeof(float));
+
+	printf("%s\n", "savvas");
 
 	N = H*W;
 	M = patchSize_H*patchSize_W;
@@ -68,8 +74,8 @@ int main(int argc, char** argv)
 	cudaMalloc( (void**) &d_image, N*sizeof(float) );
 	cudaMalloc( (void**) &d_patchCube, M*N*sizeof(float) );
 	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
-	init_reduction_cache(N,N, 16, &rc); 
-	init_reduction_cache(N,N, 16, &rc_dist_srow); 
+	init_reduction_cache(N,N, 32, &rc); 
+	init_reduction_cache(N,N, 32, &rc_dist_srow); 
 
 	/* Transfer Data too Device Memory */
 	cudaMemcpy(d_image, image, N*sizeof(float), cudaMemcpyHostToDevice);
@@ -86,10 +92,13 @@ int main(int argc, char** argv)
 	  	dim3 gridDim2D	( W, H, 1 ); 
 		generate_3D_cube<<< gridDim2D, blockDim2D >>> (d_image, d_patchCube, H,W, patchSize_H, patchSize_W);
 
+		debug_print(N, M, d_patchCube, "../data/patchCube.bin");
 		
 		apply_gaussian_filter<<< gridDim2D, blockDim2D >>>\
 			( d_patchCube,  patchSize_H, patchSize_W,  patchSigmaH, patchSigmaW);
 	}
+
+	debug_print(N, M, d_patchCube, "../data/patchCube_gaussed.bin");
 
 	// Calculate Distance Matrix between all possible patch-pairs
 	{
@@ -99,7 +108,8 @@ int main(int argc, char** argv)
 	  	dim3 gridDim2D	( g, g, 1 ); 
 		calc_dist_matrix<<< gridDim2D, blockDim2D >>> (d_dist, d_patchCube, N, M, sigma);
 	}
-	
+
+	debug_print(N, N, d_dist, "../data/dist.bin");
 	
 	/* Clip Dist Matrix Diagonal */
 	{	
@@ -109,26 +119,28 @@ int main(int argc, char** argv)
 		dim3 blockDim2D	( b, 1, 1 ); 
 	  	dim3 gridDim2D	( g, 1, 1 ); 
 		
-	  	clip_dist_diag <<<gridDim2D, blockDim2D >>>(d_dist, 0, N);
+	  	// clip_dist_diag <<<gridDim2D, blockDim2D >>>(d_dist, 0, N);
 
 		// Find max element in each row
 		row_max_WR(N, d_dist, &rc);
-		
-		clip_dist_diag <<<gridDim2D, blockDim2D >>>(d_dist, rc.d_sum, N);
+		debug_print(N, 1, rc.d_sum, "../data/max_diag.bin");
+
+		// clip_dist_diag <<<gridDim2D, blockDim2D >>>(d_dist, rc.d_sum, N);
 	}
+	debug_print(N, N, d_dist, "../data/distClipped.bin");
 	
-	
+
 
 	/* Calculate Filtered Image (Weighted Average of Original Image)*/
 	// Calculate the Denominator: The sum of each row of the d_dist Matrix
   	row_sum_WR(N, d_dist, &rc_dist_srow);
 
-  	debug_print(N, 1, rc_dist_srow.d_sum);
+  	debug_print(N, 1, rc_dist_srow.d_sum, "../data/dist_rowsum.bin");
 
 	// Perform Matrix Multiplication 
 	{	
 		// Matrix-Vector Multiplication: step 1
-		int b = 22; // max threads per block: 512 > 22*2=448
+		int b = 22; // max threads per block: 512 > 22^2=448
 		int g = ceil(N/b) + ((N%b==0)?0:1);
 		dim3 blockDim2D	( b, b, 1 ); 
 	  	dim3 gridDim2D	( g, g, 1 ); 
@@ -137,7 +149,7 @@ int main(int argc, char** argv)
 	  	// Matrix-Vector Multiplication: step 2
 	  	row_sum_WR(N, d_dist, &rc);
 
-	  	debug_print(N, 1, rc.d_sum);
+	  	debug_print(N, 1, rc.d_sum, "../data/dist_image_mult.bin");
 	}  	
 	// Normalise the Average
 	{	
@@ -146,16 +158,15 @@ int main(int argc, char** argv)
 		dim3 blockDim2D	( b, 1, 1 ); 
 	  	dim3 gridDim2D	( g, 1, 1 ); 
 	
-  		div_vector<<<gridDim2D, blockDim2D>>>( rc.d_sum, rc_dist_srow.d_sum, /*out*/ d_image, N);
+  		// div_vector<<<gridDim2D, blockDim2D>>>( rc.d_sum, rc_dist_srow.d_sum, /*out*/ d_image, N);
 	}  
 
 
-
 	/* Get Image from Device Memory */
-	cudaMemcpy(image2, d_image, N*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(image2, rc.d_sum, N*sizeof(float), cudaMemcpyDeviceToHost);
 
 	// print_array(H,W,image2);
-	write_datfile(H,W,image2);
+	write_datfile(H,W,image2, "../data/filtered_image.bin");
 
 	cudaFree(d_image);
 	cudaFree(d_patchCube);

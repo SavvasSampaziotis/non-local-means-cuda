@@ -72,10 +72,10 @@ void generate_3D_cube(float *d_image, float *d_patchCube, int H, int W, int pH, 
 __device__
 float gaussian2D(float x, float y, float s_x, float s_y)
 {
-	float a = x*x/(s_x*s_x);
-	float b = y*y/(s_y*s_y);
+	float a = x/s_x;
+	float b = y/s_y;
 
-	return exp( -(a+b)/2 );
+	return expf( -(a*a+b*b)/2 );
 }
 
 
@@ -88,10 +88,12 @@ void apply_gaussian_filter(float *d_patchCube, int pH, int pW, float patchSigma_
 	int patch_j = threadIdx.x - (pW-1)/2;
 
 	// Calc Gaussian Filter value on patch coordinates
-	float gaussCoeff = gaussian2D(patch_i, patch_j, patchSigma_h, patchSigma_w);
+	float gaussCoeff = gaussian2D(patch_j, patch_i, patchSigma_h, patchSigma_w);
 
 	// Multiply by existing patch-element
-	int k = getGlobalIdx_2D_2D();
+	// int k = getGlobalIdx_2D_2D();
+	int m = threadIdx.y*pW + threadIdx.x;
+	int k = blockIdx.x*pW*pH + m;
 	d_patchCube[k] = gaussCoeff*d_patchCube[k];
 }
 
@@ -116,8 +118,7 @@ void calc_dist_matrix(float *d_distMatrix, float *d_patchCube, int N, int M, flo
 		b = d_patchCube[j*M+m];
 		D += (a-b)*(a-b);
 	}
-
-	d_distMatrix[i*N+j] = exp(-D/sigma/sigma); 
+	d_distMatrix[i*N+j] = expf(-D/sigma/sigma); 
 }
 
 __global__
@@ -125,16 +126,16 @@ void clip_dist_diag(float* d_dist, float* d_diag, int N)
 {
 	// int tid = blockIdx.x*gridDim.x + threadIdx.x;
 	int tid = getGlobalIdx_2D_2D();
-	
+	int diag_index = tid*N+tid;
 	// Incase we oversubscribe threads/blocks
 	if(tid < N)
 	{
 		if(d_diag ==0)
-			d_dist[tid*N+tid] = 0;
+			d_dist[diag_index] = 0;
 		else
 		{
 			float d = d_diag[tid];
-			d_dist[tid*N+tid] = ( (d > FLT_MIN) ?  d:FLT_MIN) ;
+			d_dist[diag_index] = ( (d > FLT_MIN) ?  d:FLT_MIN) ;
 		}	
 	}
 }
@@ -151,7 +152,6 @@ void multi_mat_vector_row(float* d_A, float* d_x, /*out*/ float* d_B, int N)
 
 	d_B[i*N+j] = d_A[i*N+j]*d_x[j]; 
 	// d_B[i*N+j] = 0; //d_x[j]; 
-
 }
 
 

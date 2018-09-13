@@ -2,9 +2,9 @@
 #include <stdlib.h>
 
 
-void write_datfile(int N, int D, float* data)
+void write_datfile(int N, int D, float* data, const char* name)
 {
-	FILE *fp = fopen( "../data/out.bin", "w+");
+	FILE *fp = fopen( name, "w+");
 	
 	if(fp < 0)
 	{

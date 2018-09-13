@@ -36,7 +36,8 @@ void reduction_invoker(int N, float* d_A, /*out*/ ReductionCache* rc, int op )
 		int threads_num2 = exp2f(floor(log2f(rc->reduced_vec_length/rc->rowNum))); 
 		if(threads_num2>512)
 			threads_num2=512;
-		// printf("THREADS: %d RED_VEC %d\n", threads_num2, rc->reduced_vec_length/rc->rowNum );
+		
+		printf("THREADS: %d RED_VEC %d\n", threads_num2, rc->reduced_vec_length/rc->rowNum );
 		
 		dim3 gridDim2(1,rc->rowNum,1);
 		dim3 blockDim2(threads_num2,1,1);
