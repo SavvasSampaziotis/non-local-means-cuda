@@ -18,6 +18,13 @@ int i=0;
 // 	write_datfile(N,M,temp, fullname);
 // }
 
+void debug_print(int N, int M, float* d_ptr)
+{
+	float *temp = (float*) malloc(M*N*sizeof(float));
+	cudaMemcpy(temp, d_ptr, M*N*sizeof(float), cudaMemcpyDeviceToHost);
+	print_array(N,M,temp);
+}
+
 int main(int argc, char** argv)
 {
 	TimeInterval totalTime, calcTime;
@@ -82,6 +89,8 @@ int main(int argc, char** argv)
 	init_reduction_cache(N,N, 32, &rc); 
 	init_reduction_cache(N,N, 32, &rc_dist_srow); 
 
+	// for(int i=0; i<N; i++)
+		// image[i]*= 100;
 
 	/* Transfer Data too Device Memory */
 	cudaMemcpy(d_image, image, N*sizeof(float), cudaMemcpyHostToDevice);
@@ -142,7 +151,7 @@ int main(int argc, char** argv)
 	// Calculate the Denominator: The sum of each row of the d_dist Matrix
   	row_sum_WR(N, d_dist, &rc_dist_srow);
 
-  	// debug_print(N, 1, rc_dist_srow.d_sum, "../data/dist_rowsum.bin");
+  	debug_print(N, N, d_dist);
 
 	// Perform Matrix Multiplication 
 	{	
@@ -151,7 +160,7 @@ int main(int argc, char** argv)
 		int g = ceil(N/b) + ((N%b==0)?0:1);
 		dim3 blockDim2D	( b, b, 1 ); 
 	  	dim3 gridDim2D	( g, g, 1 ); 
-	 	multi_mat_vector_row<<<gridDim2D, blockDim2D>>>( d_dist, image, /*out*/ d_dist, N);
+	 	multi_mat_vector_row<<<gridDim2D, blockDim2D>>>( d_dist, d_image, /*out*/ d_dist, N);
 	 
 	  	// Matrix-Vector Multiplication: step 2
 	  	row_sum_WR(N, d_dist, &rc);
@@ -165,7 +174,7 @@ int main(int argc, char** argv)
 		dim3 blockDim2D	( b, 1, 1 ); 
 	  	dim3 gridDim2D	( g, 1, 1 ); 
 	
-  		// div_vector<<<gridDim2D, blockDim2D>>>( rc.d_sum, rc_dist_srow.d_sum, /*out*/ d_image, N);
+  		div_vector<<<gridDim2D, blockDim2D>>>( rc.d_sum, rc_dist_srow.d_sum, /*out*/ d_image, N);
 	}  
 
 	toc(&calcTime);
@@ -174,10 +183,12 @@ int main(int argc, char** argv)
 	/* Get Image from Device Memory */
 	cudaMemcpy(image2, rc.d_sum, N*sizeof(float), cudaMemcpyDeviceToHost);
 
-	for(int i=0; i<N; i++)
-		image2[i] = (i%2)?1:0;
+	// for(int i=0; i<N; i++)
+		// image2[i] /= 100;
 
-	// print_array(H,W,image2);
+	print_array(H,W,image);
+	printf("-------------\n");
+	print_array(H,W,image2);
 	write_datfile(H,W,image2, "../data/filtered_image.bin");
 
 	cudaFree(d_image);
