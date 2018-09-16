@@ -4,21 +4,24 @@
 #include "array_utilities.h"
 #include "reduction.h"
 #include "nlm_cuda.h"
+#include "time_measure.h"
 
 int i=0;
 
-void debug_print(int N, int M, float* d_ptr, const char* fullname)
-{
-	float *temp = (float*) malloc(M*N*sizeof(float));
-	cudaMemcpy(temp, d_ptr, M*N*sizeof(float), cudaMemcpyDeviceToHost);
-	// print_array(N,M,temp);
+// void debug_print(int N, int M, float* d_ptr, const char* fullname)
+// {
+// 	float *temp = (float*) malloc(M*N*sizeof(float));
+// 	cudaMemcpy(temp, d_ptr, M*N*sizeof(float), cudaMemcpyDeviceToHost);
+// 	// print_array(N,M,temp);
 
-	// printf("%s\n", fullname);
-	write_datfile(N,M,temp, fullname);
-}
+// 	// printf("%s\n", fullname);
+// 	write_datfile(N,M,temp, fullname);
+// }
 
 int main(int argc, char** argv)
 {
+	TimeInterval totalTime, calcTime;
+
 	int patchSize_H = 5;
 	int patchSize_W = 5;
 	float patchSigmaH = 1.66;
@@ -70,12 +73,15 @@ int main(int argc, char** argv)
 	N = H*W;
 	M = patchSize_H*patchSize_W;
 
+	tic(&totalTime);
+
 	/* Allocate Device Memory */
 	cudaMalloc( (void**) &d_image, N*sizeof(float) );
 	cudaMalloc( (void**) &d_patchCube, M*N*sizeof(float) );
 	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
 	init_reduction_cache(N,N, 32, &rc); 
 	init_reduction_cache(N,N, 32, &rc_dist_srow); 
+
 
 	/* Transfer Data too Device Memory */
 	cudaMemcpy(d_image, image, N*sizeof(float), cudaMemcpyHostToDevice);
@@ -85,6 +91,7 @@ int main(int argc, char** argv)
 	//Normalise Image Pixel Intensity
 	// TODO
 
+	tic(&calcTime);
 
 	// Generate 3D Cube (2D array of 1xM patches)
 	{
@@ -92,13 +99,13 @@ int main(int argc, char** argv)
 	  	dim3 gridDim2D	( W, H, 1 ); 
 		generate_3D_cube<<< gridDim2D, blockDim2D >>> (d_image, d_patchCube, H,W, patchSize_H, patchSize_W);
 
-		debug_print(N, M, d_patchCube, "../data/patchCube.bin");
+		// debug_print(N, M, d_patchCube, "../data/patchCube.bin");
 		
 		apply_gaussian_filter<<< gridDim2D, blockDim2D >>>\
 			( d_patchCube,  patchSize_H, patchSize_W,  patchSigmaH, patchSigmaW);
 	}
 
-	debug_print(N, M, d_patchCube, "../data/patchCube_gaussed.bin");
+	// debug_print(N, M, d_patchCube, "../data/patchCube_gaussed.bin");
 
 	// Calculate Distance Matrix between all possible patch-pairs
 	{
@@ -109,7 +116,7 @@ int main(int argc, char** argv)
 		calc_dist_matrix<<< gridDim2D, blockDim2D >>> (d_dist, d_patchCube, N, M, sigma);
 	}
 
-	debug_print(N, N, d_dist, "../data/dist.bin");
+	// debug_print(N, N, d_dist, "../data/dist.bin");
 	
 	/* Clip Dist Matrix Diagonal */
 	{	
@@ -123,11 +130,11 @@ int main(int argc, char** argv)
 
 		// Find max element in each row
 		row_max_WR(N, d_dist, &rc);
-		debug_print(N, 1, rc.d_sum, "../data/max_diag.bin");
+		// debug_print(N, 1, rc.d_sum, "../data/max_diag.bin");
 
 		// clip_dist_diag <<<gridDim2D, blockDim2D >>>(d_dist, rc.d_sum, N);
 	}
-	debug_print(N, N, d_dist, "../data/distClipped.bin");
+	// debug_print(N, N, d_dist, "../data/distClipped.bin");
 	
 
 
@@ -135,7 +142,7 @@ int main(int argc, char** argv)
 	// Calculate the Denominator: The sum of each row of the d_dist Matrix
   	row_sum_WR(N, d_dist, &rc_dist_srow);
 
-  	debug_print(N, 1, rc_dist_srow.d_sum, "../data/dist_rowsum.bin");
+  	// debug_print(N, 1, rc_dist_srow.d_sum, "../data/dist_rowsum.bin");
 
 	// Perform Matrix Multiplication 
 	{	
@@ -149,7 +156,7 @@ int main(int argc, char** argv)
 	  	// Matrix-Vector Multiplication: step 2
 	  	row_sum_WR(N, d_dist, &rc);
 
-	  	debug_print(N, 1, rc.d_sum, "../data/dist_image_mult.bin");
+	  	// debug_print(N, 1, rc.d_sum, "../data/dist_image_mult.bin");
 	}  	
 	// Normalise the Average
 	{	
@@ -161,9 +168,14 @@ int main(int argc, char** argv)
   		// div_vector<<<gridDim2D, blockDim2D>>>( rc.d_sum, rc_dist_srow.d_sum, /*out*/ d_image, N);
 	}  
 
+	toc(&calcTime);
+	printf("%f\n", calcTime.seqTime);
 
 	/* Get Image from Device Memory */
 	cudaMemcpy(image2, rc.d_sum, N*sizeof(float), cudaMemcpyDeviceToHost);
+
+	for(int i=0; i<N; i++)
+		image2[i] = (i%2)?1:0;
 
 	// print_array(H,W,image2);
 	write_datfile(H,W,image2, "../data/filtered_image.bin");
@@ -174,4 +186,7 @@ int main(int argc, char** argv)
 
 	free(image);
 	free(image2);
+
+	toc(&totalTime);
+	printf("%f\n", calcTime.seqTime);
 }
