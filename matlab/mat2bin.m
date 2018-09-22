@@ -1,5 +1,5 @@
 
-function [] = mat2txt(I, filename)
+function [] = mat2bin(I, filename)
 
 % clear
 % load('house.mat')
@@ -7,7 +7,7 @@ function [] = mat2txt(I, filename)
 % filename = 'house';
 
 DATA_DIR = '../data/';
-fid = fopen(strcat(DATA_DIR , filename ,'.dat'), 'w');
+fid = fopen(strcat(DATA_DIR , filename ,'.bin.in'), 'w');
 fwrite(fid, size(I), 'int' );
 fwrite(fid, I, 'float');
 fclose(fid);
