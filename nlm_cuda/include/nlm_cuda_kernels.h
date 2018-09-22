@@ -3,8 +3,8 @@
 
 	Author: Savvas Sampaziotis
 */
-#ifndef NLM_CUDA_H
-#define  NLM_CUDA_H
+#ifndef NLM_CUDA_KERNELS_H
+#define  NLM_CUDA_KERNELS_H
 
 
 
