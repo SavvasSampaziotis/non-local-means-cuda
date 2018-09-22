@@ -11,13 +11,13 @@
 #include "array_utilities.h"
 #include "nlm_cuda.h"
 // #include "time_measure.h"
+#include <sys/time.h>
 
 int main(int argc, char** argv)
 {
-	// TimeInterval totalTime;
 
-	int patch_H = 5;
-	int patch_W = 5;
+	int patch_H = 3;
+	int patch_W = 3;
 	float patchSigmaH = 1.66;
 	float patchSigmaW = 1.66;
 	float sigma = 0.1f;
@@ -43,15 +43,22 @@ int main(int argc, char** argv)
 	read_dataset(&H, &W, &image_in, filename);
 	image_out = (float*) malloc(H*W*sizeof(float));
 
-	// tic(&totalTime);
+	timeval startwtime, endwtime;
 	
-	double calcTime =nonLocalMeansCUDA(image_in, image_out, H,W, patch_H, patch_W, patchSigmaH, patchSigmaW, sigma);
+	double calcTime;
+	gettimeofday(&startwtime, NULL);
 
-	// toc(&totalTime);
-	// printf("%f\n", totalTime.seqTime);
-	printf("%f\n", calcTime);
+	calcTime = nonLocalMeansCUDA(image_in, image_out, H,W, patch_H, patch_W, patchSigmaH, patchSigmaW, sigma);
+
+	double totalTime ;
+	gettimeofday(&endwtime, NULL);
+
+	totalTime = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
+
+	printf("Total Time:\t%fsec\n", totalTime);
+	printf("Kernel Time:\t%fsec\n", calcTime);
 		
-	write_datfile(H,W,image_out, "./imout.bin");
+	write_datfile(H,W,image_out, "./imout.bin.out");
 
 	free(image_in);
 	free(image_out);
