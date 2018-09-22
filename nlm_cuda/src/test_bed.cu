@@ -12,52 +12,66 @@ float *data;
 
 void test_generate_3d_cube();
 void test_apply_gaussianfilt();
-void test_calc_dist();
-void compare_calcdist();
-void calc_sum_reduction();
-void test_clip_diag();
-void test_matrix_mult();
+bool test_calc_dist(int N);
+bool calc_sum_reduction(int N);
+bool test_clip_diag(int N);
+bool test_matrix_mult(int N);
+
+void printVerdict(bool p)
+{
+	if(p)
+		printf("Verdict = PASSED\n");
+	else
+		printf("Verdict = FAILED\n");
+}
 
 int main(int argc, char** argv)
 {
 	
-	// char* filename;
-	// if(argc == 2)
-	// 	filename = argv[1];
-	// else
-	// 	printf("NO ARGS GIVEN\n");
-	// printf("[MAIN]:\t.dat File targeted for denoising: %s", filename);
-	// read_dataset(&H, &W, &data, filename);
-	// printf("%f\n\n",data[3]);
+	int N;
+	if(argc == 2)
+		N = atoi(argv[1]);
+	else
+		N = 10;
+
+	printf("\nProblem Size N = %d\n",N);
 
 
 	/***** Test Area *****/
+	bool p;
+	// p = test_generate_3d_cube();	
 
-	// test_generate_3d_cube();	
+	// p = test_apply_gaussianfilt();
 
-	// test_apply_gaussianfilt();
-
-	test_calc_dist();
+	// Calcs the Row Sum of a [NxN] matrix  
+	printf("\n------------------------------\n");
+	printf("Calc Sum Reduction\n");
+	p = calc_sum_reduction(N);
+	printVerdict(p);
 	
-	// compare_calcdist();
+	// Square Matrix A:[NxN]
+	printf("\n------------------------------\n");
+	printf("Clip Diagonal\n");
+	p = test_clip_diag(N);
+	printVerdict(p);
 
-	// calc_sum_reduction();
-	
-	// test_clip_diag();
+	// y=Ax -> A:[NxN] y,x:[Nx1]
+	printf("\n------------------------------\n");
+	printf("Matrix Multiplication\n");
+	p = test_matrix_mult(N);
+	printVerdict(p);
 
-	// test_matrix_mult();
-	
-	// Free data
-	// free(data);
+	// Calc the NxN dist Matrix of a NxM Data set. M is set constant M=5*5=25
+	printf("\n------------------------------\n");
+	printf("Calc Distance Matrix\n");
+	p = test_calc_dist(N);
+	printVerdict(p);
 	return 0;
 }
 
-void test_matrix_mult()
+bool test_matrix_mult(int N)
 {
 	/* y = A*x */
-
-	int N = 8*8;
-
 	float *A = (float*) malloc(N*N*sizeof(float));
 	float *x = (float*) malloc(N*sizeof(float));
 
@@ -106,8 +120,8 @@ void test_matrix_mult()
  		MSE += (y2[i] - y[i])*(y2[i] - y[i]);
  	}
  	MSE = MSE/N;
-
- 	printf("MSE=%f\tTest %s\n",MSE, (passed?"PASSED":"FAILED") );
+	if (passed == false)
+	 	printf("MSE=%f\n",MSE);
 
  	// print_array(1,N,y);
  	// print_array(1,N,y2);
@@ -120,12 +134,13 @@ void test_matrix_mult()
 	cudaFree(d_A);
 	cudaFree(d_x);
 	delete_reduction_cache(&rc);
+
+	return passed;
 }
 
 
-void test_clip_diag()
+bool test_clip_diag(int N)
 {
-	int N = 128;
 	
 	float *testArray = (float*) malloc(N*N*sizeof(float));
 	for(int i=0; i<N*N; i++)
@@ -163,20 +178,20 @@ void test_clip_diag()
 	for(int i=0; i<N*N; i++)
 			passed = passed && (testArray[i]==result[i]);
 
-	printf("Test %s\n", passed ? "PASSED":"FAILED" );
+	// printf("Test %s\n", passed ? "PASSED":"FAILED" );
 
 	free(testArray);
 	cudaFree(d_dist);
 	delete_reduction_cache(&rc);
+
+	return passed;
 }
 
-void calc_sum_reduction()
+bool calc_sum_reduction(int N)
 {
-	int N = 64;
-	
 	float *testArray = (float*) malloc(N*N*sizeof(float));
 	for(int i=0; i<N*N; i++)
-		testArray[i] = 0.001; 
+		testArray[i] = i; 
 	float *d_dist;
 	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
 	cudaMemcpy(d_dist, testArray, N*N*sizeof(float), cudaMemcpyHostToDevice);
@@ -193,41 +208,42 @@ void calc_sum_reduction()
 
   	// **** Check Result **** //
   	float MSE = 0;
+  	bool passed = true;
   	for(int i=0; i<N; i++)
 	{	
 		float sum = 0;
 		for(int j=0; j<N; j++)
 			sum += testArray[i*N+j];
 			// sum = (sum>testArray[i*N+j])? sum:testArray[i*N+j];
-		// printf("\t%f\n", sum );		
+	
 		float e = (sum - rsum[i]);
+		passed = passed && (sum==rsum[i]);
 		MSE+=e*e;
 	}
 	MSE = MSE/N;
-	print_array(N,1,rsum);
-	printf("MSE = %f\t%s\n", MSE, (MSE==0)? "PASSED":"FAILED" );
+	if (passed == false)
+		printf("MSE=%f\n",MSE);
 	
 	free(rsum);
 	free(testArray);
 	cudaFree(d_dist);
 	delete_reduction_cache(&rc);
+
+	return passed;
 }
 
-void test_calc_dist(){
-	
-	printf("Test Dist Matrix Calculation of N vectors of length M\n" );
-
+bool test_calc_dist(int N)
+{
 	float* d_patchCube; // Memory Container of the 3D H-by-W-by-patchSize cube containing the (in 1-by-HW 1D array)
 	float* d_dist; // Memory Container of the 2D HW-by-HW dist_matrix of all patches
 
-	int N = 10;
 	int M = 25;
 	float sigma = 0.1;
 
 	// Construct Test 3D Cube 
 	float* testArray = (float*) malloc(M*N*sizeof(float));
 	for(int i=0; i<N*M; i++)
-		testArray[i] = sin(i);
+		testArray[i] = i;
 
 	cudaMalloc( (void**) &d_patchCube, M*N*sizeof(float) );
 	cudaMemcpy(d_patchCube, testArray, M*N*sizeof(float), cudaMemcpyHostToDevice);
@@ -237,20 +253,19 @@ void test_calc_dist(){
 	//////////////
 	int b = 22;
 	int g = ceil(N/b) + ((N%b==0)?0:1);
-	printf("grid num = %d\n", g);
 	dim3 blockDim2D	( b, b, 1 ); 
   	dim3 gridDim2D	( g, g, 1 ); 
 	calc_dist_matrix<<< gridDim2D, blockDim2D >>> (d_dist, d_patchCube, N, M, sigma);
 
 	////////////// Print Results	
 	// if (N<=10)
-	print_array(N,M,testArray);
+	// print_array(N,M,testArray);
 	
 	float* dist = (float*) malloc(N*N*sizeof(float)) ;	
 	cudaMemcpy(dist, d_dist, N*N*sizeof(float), cudaMemcpyDeviceToHost);
 	
 	// if (N<=10)
-	print_array(N, N, dist);
+	// print_array(N, N, dist);
 	// else
 		// printf("Matrix to big to print in console\n");
 
@@ -272,29 +287,30 @@ void test_calc_dist(){
 			MSE +=  (dist[i*N+j]-D)*(dist[i*N+j]-D);
 		}
 	MSE = MSE/N/N;	
-	printf("Mean Square Error = %lf\n", MSE);
+
+	bool passed = (MSE==0);
+	if (passed == false)
+		printf("MSE=%lf\n",MSE);
+	
 	
 	//// Clean Up
 	cudaFree(d_dist);
 	cudaFree(d_patchCube);
 	free(dist);
+
+	return passed;
 }
 
 
-
-void test_apply_gaussianfilt(){
-	
-	printf("Apply Gaussian Filter on each patch of the 3D Cube\n" );
-
-	float* d_patchCube; // Memory Container of the 3D H-by-W-by-patchSize cube containing the (in 1-by-HW 1D array)
-
+// TODO: make it to return bool
+void test_apply_gaussianfilt(int N)
+{	
 	float patchSigmaH = 1.66;
 	float patchSigmaW = 1.66;
 	int pH = 5, pW = 5; 
-	
 	int M = pH*pW;
-	int H = 8, W = 8;
-	int N = H*W;
+
+	float* d_patchCube; // Memory Container of the 3D H-by-W-by-patchSize cube containing the (in 1-by-HW 1D array)
 
 	float* testArray = (float*) malloc(M*N*sizeof(float));
 	for(int i=0; i<M*N; i++)
@@ -314,10 +330,8 @@ void test_apply_gaussianfilt(){
 	float* patchCube = (float*) malloc(M*N*sizeof(float)) ;	
 	cudaMemcpy(patchCube, d_patchCube, M*N*sizeof(float), cudaMemcpyDeviceToHost);
 
-	
-	printf("pHxpW Patches:\n");
-	print_array(1, M, patchCube);
-
+	// printf("pHxpW Patches:\n");
+	// print_array(1, M, patchCube);
 
 	//// Clean Up
 	cudaFree(d_patchCube);

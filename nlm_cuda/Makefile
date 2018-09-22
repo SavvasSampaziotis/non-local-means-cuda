@@ -131,7 +131,6 @@ SAMPLE_ENABLED := 1
 # Gencode arguments
 ifeq ($(OS_ARCH),armv7l)
 SMS ?= 20 30 32 35 37 50 52
-# SMS ?= 20 
 else
 SMS ?= 11 20 30 35 37 50 52
 endif
@@ -200,14 +199,11 @@ nlm_cuda.o: src/nlm_cuda.cu
 	$(EXEC) $(NVCC) $(ALL_CCFLAGS) $(GENCODE_FLAGS) $(LIBRARIES) -o $@ -c $<
 	@echo ' '
 
-test_bed: clear_screen array_utilities.o reduction.o nlm_cuda.o src/test_bed.cu move2bin
+test_bed: clear_screen array_utilities.o reduction.o nlm_cuda.o src/test_bed.cu
 	@echo Compiling $@ ...
 	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@.out $(OBJ) $(LIBRARIES)
 	@echo ' '
-	./test_bed.out ../data/test.dat
-
-move2bin: 
-	mv *.o ./bin/
+	./test_bed.out 10
 
 run: build
 	$(EXEC) ./$(TARGET).out ../data/house8.dat
