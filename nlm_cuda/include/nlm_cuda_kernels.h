@@ -1,12 +1,13 @@
 /*
-	Header File for non LOcal Means Imlementation
+	Header File for non LOcal Means Imlementation Cuda-Kernel Funcrions
 
 	Author: Savvas Sampaziotis
 */
 #ifndef NLM_CUDA_KERNELS_H
 #define  NLM_CUDA_KERNELS_H
 
-
+#include "reduction.h"
+#include <float.h>
 
 /*
 	Fills the patchCube 3D array: A 2D array of 1D arrays containing the M-pixels of the patch window.

@@ -4,6 +4,9 @@
  Author: Savvas Sampaziotis
 */
 
+#ifndef TIME_MEASURE_H
+#define  TIME_MEASURE_H
+
 #include <sys/time.h>
 
 typedef struct timIntervalstruct
@@ -26,3 +29,5 @@ double toc(TimeInterval* timeInterval)
 			      + timeInterval->endwtime.tv_sec - timeInterval->startwtime.tv_sec);
 	return timeInterval->seqTime;
 }
+
+#endif

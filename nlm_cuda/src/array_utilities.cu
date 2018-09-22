@@ -1,6 +1,11 @@
+/*
+	Source File for array utilities library
+
+	Author: Savvas Sampaziotis
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
-
 
 void write_datfile(int N, int D, float* data, const char* name)
 {

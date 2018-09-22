@@ -1,7 +1,11 @@
+/*
+	Source File for non local means  library (kernel functions)
 
-#include "reduction.h"
+	Author: Savvas Sampaziotis
+*/
 
-#include <float.h>
+#include "nlm_cuda_kernels.h"
+
 
 // #define FLT_MIN 1.175494e-38
 

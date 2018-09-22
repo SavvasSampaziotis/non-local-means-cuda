@@ -162,6 +162,7 @@ TARGET:=demo_nlm_cuda
 OBJ := array_utilities.o
 OBJ += reduction.o
 OBJ += nlm_cuda.o
+OBJ += nlm_cuda_kernels.o
 
 # Target rules
 all: build
@@ -179,7 +180,7 @@ else
 endif
 
 
-$(TARGET): array_utilities.o reduction.o nlm_cuda.o src/$(TARGET).cu
+$(TARGET): array_utilities.o reduction.o nlm_cuda_kernels.o nlm_cuda.o  src/$(TARGET).cu
 	@echo Compiling $@ ...
 	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@.out $(OBJ) $(LIBRARIES)
 	@echo ' '
@@ -194,12 +195,17 @@ reduction.o: src/reduction.cu
 	$(EXEC) $(NVCC) $(ALL_CCFLAGS) $(GENCODE_FLAGS) $(LIBRARIES) -o $@ -c $<
 	@echo ' '
 
+nlm_cuda_kernels.o: src/nlm_cuda_kernels.cu
+	@echo Compiling $@ ...
+	$(EXEC) $(NVCC) $(ALL_CCFLAGS) $(GENCODE_FLAGS) $(LIBRARIES) -o $@ -c $<
+	@echo ' '
+
 nlm_cuda.o: src/nlm_cuda.cu
 	@echo Compiling $@ ...
 	$(EXEC) $(NVCC) $(ALL_CCFLAGS) $(GENCODE_FLAGS) $(LIBRARIES) -o $@ -c $<
 	@echo ' '
 
-test_bed: clear_screen array_utilities.o reduction.o nlm_cuda.o src/test_bed.cu
+test_bed: clear_screen array_utilities.o reduction.o nlm_cuda_kernels.o src/test_bed.cu
 	@echo Compiling $@ ...
 	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@.out $(OBJ) $(LIBRARIES)
 	@echo ' '

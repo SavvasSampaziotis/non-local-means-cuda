@@ -1,3 +1,8 @@
+/*
+	Source File for unit-testing each nlm kernel function
+
+	Author: Savvas Sampaziotis
+*/
 
 
 #include "array_utilities.h"
@@ -6,7 +11,9 @@
 
 #include "nlm_cuda.h"
 #include "reduction.h"
-#include "time_measure.h"
+
+
+
 int H,W;
 float *data;
 

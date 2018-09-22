@@ -11,6 +11,10 @@
 #define R_SUM 1
 #define R_MAX 2
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <float.h>
 
 /*
 	This struct contains various metadata needed for reduction-kernel launching.

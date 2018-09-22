@@ -1,7 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <float.h>
+/*
+	Source File for row-wise reduction tools library
+
+	Author: Savvas Sampaziotis
+*/
 
 #include "reduction.h"
 
