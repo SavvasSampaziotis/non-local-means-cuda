@@ -165,9 +165,9 @@ OBJ += nlm_cuda.o
 OBJ += nlm_cuda_kernels.o
 
 # Target rules
-all: build
+all: build nlm_benchmark.out test_bed
 
-build: clear_screen $(TARGET) 
+build: clear_screen $(TARGET).out 
 
 clear_screen:
 	@clear
@@ -180,9 +180,14 @@ else
 endif
 
 
-$(TARGET): array_utilities.o reduction.o nlm_cuda_kernels.o nlm_cuda.o  src/$(TARGET).cu
+nlm_benchmark.out: array_utilities.o reduction.o nlm_cuda_kernels.o nlm_cuda.o  src/$(TARGET).cu
 	@echo Compiling $@ ...
-	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@.out $(OBJ) $(LIBRARIES)
+	$(EXEC) $(NVCC)  src/nlm_benchmark.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $(OBJ) $(LIBRARIES)
+	@echo ' '
+
+demo_nlm_cuda.out: array_utilities.o reduction.o nlm_cuda_kernels.o nlm_cuda.o  src/$(TARGET).cu
+	@echo Compiling $@ ...
+	$(EXEC) $(NVCC)  src/demo_nlm_cuda.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $(OBJ) $(LIBRARIES)
 	@echo ' '
 
 array_utilities.o: src/array_utilities.cu
@@ -205,11 +210,11 @@ nlm_cuda.o: src/nlm_cuda.cu
 	$(EXEC) $(NVCC) $(ALL_CCFLAGS) $(GENCODE_FLAGS) $(LIBRARIES) -o $@ -c $<
 	@echo ' '
 
-test_bed: clear_screen array_utilities.o reduction.o nlm_cuda_kernels.o src/test_bed.cu
+test_bed.out: clear_screen array_utilities.o reduction.o nlm_cuda_kernels.o nlm_cuda.o src/test_bed.cu
 	@echo Compiling $@ ...
-	$(EXEC) $(NVCC)  src/$@.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@.out $(OBJ) $(LIBRARIES)
+	$(EXEC) $(NVCC)  src/test_bed.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $(OBJ) $(LIBRARIES)
 	@echo ' '
-	./test_bed.out 10
+	$(EXEC) ./test_bed.out
 
 run: build
 	$(EXEC) ./$(TARGET).out ../data/house8.dat

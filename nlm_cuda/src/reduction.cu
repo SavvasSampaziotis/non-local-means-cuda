@@ -32,13 +32,12 @@ void reduction_invoker(int N, float* d_A, /*out*/ ReductionCache* rc, int op )
 			
 		/* Level 1 Reduction - Single Block */
 
-		// Ideally we would like threads_num==length(reduced_vec)/numRow. 
-		// However threads_num2 must be a power of 2. Thus:
+		// Ideally we would like threads_num==length(reduced_vec)/numRow. However threads_num2 must be a power of 2. Thus:
 		int threads_num2 = exp2f(floor(log2f(rc->reduced_vec_length/rc->rowNum))); 
 		if(threads_num2>512)
 			threads_num2=512;
 		
-		printf("[REDUCTION WRAPPER:] THREADS: %d RED_VEC %d\n", threads_num2, rc->reduced_vec_length/rc->rowNum );
+		printf("[REDUCTION WRAPPER:] Level 0: THREADS: %d RED_VEC %d\n", threads_num2, rc->blocksNum );
 		
 		dim3 gridDim2(1,rc->rowNum,1);
 		dim3 blockDim2(threads_num2,1,1);
@@ -116,10 +115,10 @@ void reduction(int N, float* X, float* reducted_vec, int op)
 	__syncthreads();
 	
 	// Begin the reduction per shared-memory-block
-	for(int i=blockDim.x/2; i>0; i>>=1)
+	for(unsigned int s = blockDim.x/2; s > 0; s>>=1)
 	{	
-		if(cache_i < i)
-			reduction_cache[cache_i] = reduction_op(reduction_cache[cache_i], reduction_cache[cache_i+i], op);  
+		if(cache_i < s)
+			reduction_cache[cache_i] = reduction_op(reduction_cache[cache_i], reduction_cache[cache_i+s], op);  
 		__syncthreads();
 	}
 
@@ -162,9 +161,12 @@ void init_reduction_cache(int rowLength, int rowNum, int threads_num, /*out*/ Re
 	rc->rowNum = rowNum;
 	rc->reduced_vec_length = rowNum*blocks_num; // ronNum * (number of blocks per row) 
 	
-	rc->cache_size = rowNum*threads_num*sizeof(float);
-	// if(rc->cache_size > 1024*16) // cache > 16 KB. CUCA 1.x allows max sm 16 per MP
-		//printf("[WARNING]:\t[INIT_REDUCTION_CACHE]:\tShared Memory size too large: %lu\n",\ rc->cache_size);
+	rc->cache_size = threads_num*sizeof(float);
+	if(rc->cache_size > 1024*16) // cache > 16 KB. CUCA 1.x allows max sm 16MB per Multi-Processor
+	{
+		printf("[WARNING]:\t[INIT_REDUCTION_CACHE]:\tShared Memory size too large: %lu\n", rc->cache_size);
+		// rc->cache_size = 
+	}
 
 	if(blocks_num>1)  
 		cudaMalloc((void**) &(rc->d_reduced_vec), rc->reduced_vec_length*sizeof(float));
