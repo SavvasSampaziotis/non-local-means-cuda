@@ -31,9 +31,13 @@ int main(int argc, char** argv )
 
     TimeInterval ti;
     tic(&ti);
-    fastNlMeansDenoising( image, image2, 3, 7, 21);
+    for (int i = 0; i < 20; ++i)
+    {
+        fastNlMeansDenoising( image, image2, 3, 7, 21);
+    }
     double seqTime = toc(&ti);
-    printf("Time Elapsed: %f\n", seqTime);
+    seqTime = seqTime/20;
+    printf("Average Time Elapsed: %f\n", seqTime);
 
     // cv::cuda::nonLocalMeans(image, image3, 3,21,7,BORDER_REFLECT101);
 
