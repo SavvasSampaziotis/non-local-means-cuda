@@ -101,6 +101,31 @@ void apply_gaussian_filter(float *d_patchCube, int pH, int pW, float patchSigma_
 	d_patchCube[k] = gaussCoeff*d_patchCube[k];
 }
 
+__global__
+void calc_dist_matrix_adaptive(float *d_distMatrix, float *d_patchCube, int N, int M, float* d_hMat)
+{	
+	
+	int i = blockIdx.y*blockDim.y + threadIdx.y;
+	int j = blockIdx.x*blockDim.x + threadIdx.x;
+
+	float h = d_hMat[i];
+
+	// For efficient use of the cuda kernels, we should check for oversubscribtion 
+	if( (i >= N) || (j>=N) )
+		return;
+	
+	// Calc Dist	
+	float D = 0;
+	float a,b;
+	for(int m=0; m < M; m++)
+	{
+		a = d_patchCube[i*M+m];
+		b = d_patchCube[j*M+m];
+		D += (a-b)*(a-b);
+	}
+	d_distMatrix[i*N+j] = expf(-D/h/h); 
+
+}
 
 __global__
 void calc_dist_matrix(float *d_distMatrix, float *d_patchCube, int N, int M, float sigma)

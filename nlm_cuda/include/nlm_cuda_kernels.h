@@ -54,6 +54,9 @@ __global__
 void calc_dist_matrix_SHARED(float *d_distMatrix, float *d_patchCube,  float sigma);
 
 
+__global__
+void calc_dist_matrix_adaptive(float *d_distMatrix, float *d_patchCube, int N, int M, float* d_hMat);
+
 /*
 	Replaces the diagonal of square matrix d_dist with elements of vector d_diag
 
