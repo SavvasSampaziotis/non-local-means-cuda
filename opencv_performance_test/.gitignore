@@ -13,4 +13,4 @@ CTestTestfile.cmake
 
 
 # Compiled Executables
-fastNlMeansDenoising_Performance/DisplayImage
+fastNlMeansDenoising_Performance/openCV_FastNLM_test
