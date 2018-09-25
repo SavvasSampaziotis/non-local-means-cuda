@@ -39,9 +39,9 @@ int main(int argc, char** argv)
 	}
 
 	printf("\n");
-	sweepPatchSizes(data_dir,"house10.bin.in");
 	sweepPatchSizes(data_dir,"house16.bin.in");
 	sweepPatchSizes(data_dir,"house32.bin.in");
+	sweepPatchSizes(data_dir,"house50.bin.in");
 	sweepPatchSizes(data_dir,"house64.bin.in");
 	printf("\n");
 }
@@ -61,7 +61,7 @@ void sweepPatchSizes(const char* data_dir, const char* filename)
 	image_out = (float*) malloc(H*W*sizeof(float));
 	
 	
-	for(int patchSize=1; patchSize<=9; patchSize+=2)
+	for(int patchSize=1; patchSize<=15; patchSize+=2)
 	{
 		double calcTime = 0;
 		for (int i=0; i<RUNS; i++)

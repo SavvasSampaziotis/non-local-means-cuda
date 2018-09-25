@@ -29,7 +29,13 @@ void clip_dist_diag(float* d_dist, ReductionCache rc, int N );
 // Calculates the weighted average of each image-pixel, by performing matrix multiplication and elemnt-wise division between vectors.
 void calc_weighted_average(float *d_dist, float* d_image, ReductionCache rc_dist_srow, ReductionCache rc, int N);
 
-
+int BUG_COMPENSATION(int N)
+{
+	if (N > 250)
+		return 4;
+	else
+		return 32;
+}
 
 double nonLocalMeansCUDA_adapt(float* image_in, float *image_out, int H, int W, \
 	int patch_H, int patch_W, int patchSigmaH, int patchSigmaW, float* hMat)
@@ -48,19 +54,23 @@ double nonLocalMeansCUDA_adapt(float* image_in, float *image_out, int H, int W, 
 	// This is the reduction cache used for clipping the diagonal of
 	// the distance matrix, and performing the Matrix Calculation between the dist matrix and the image
 	ReductionCache rc; 
-	ReductionCache rc_dist_srow; 
+	ReductionCache rc_dist_srow;
 	
-	/*TODO: individual d_filtSigma h_ij*/
-	float* d_hMat;
+	int thread_num = 64;
+	thread_num = BUG_COMPENSATION(N);
+	init_reduction_cache(N,N, thread_num, &rc); 
+	init_reduction_cache(N,N, thread_num, &rc_dist_srow); 
+
 	
+	float* d_hMat; // Individual h-filter parameter for each pixel
 	/* Allocate Device Memory */
 	cudaMalloc( (void**) &d_image, N*sizeof(float) );
 	cudaMalloc( (void**) &d_patchCube, M*N*sizeof(float) );
 	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
 	cudaMalloc( (void**) &d_hMat, N*sizeof(float) );
 
-	init_reduction_cache(N,N, 4, &rc); 
-	init_reduction_cache(N,N, 4, &rc_dist_srow); 
+	init_reduction_cache(N,N, thread_num, &rc); 
+	init_reduction_cache(N,N, thread_num, &rc_dist_srow); 
 
 
 	/* Transfer Data too Device Memory */
@@ -120,8 +130,10 @@ double nonLocalMeansCUDA(float* image_in, float *image_out, int H, int W, \
 	cudaMalloc( (void**) &d_patchCube, M*N*sizeof(float) );
 	cudaMalloc( (void**) &d_dist, N*N*sizeof(float) );
 
-	init_reduction_cache(N,N, 4, &rc); 
-	init_reduction_cache(N,N, 4, &rc_dist_srow); 
+	int thread_num = 64;
+	thread_num = BUG_COMPENSATION(N);
+	init_reduction_cache(N,N, thread_num, &rc); 
+	init_reduction_cache(N,N, thread_num, &rc_dist_srow); 
 
 
 	/* Transfer Data too Device Memory */

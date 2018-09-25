@@ -165,7 +165,7 @@ OBJ += nlm_cuda.o
 OBJ += nlm_cuda_kernels.o
 
 # Target rules
-all: build nlm_benchmark.out test_bed
+all: build nlm_benchmark.out test_bed.out
 
 build: clear_screen $(TARGET).out 
 
@@ -214,7 +214,6 @@ test_bed.out: clear_screen array_utilities.o reduction.o nlm_cuda_kernels.o nlm_
 	@echo Compiling $@ ...
 	$(EXEC) $(NVCC)  src/test_bed.cu $(ALL_LDFLAGS) $(GENCODE_FLAGS) -o $@ $(OBJ) $(LIBRARIES)
 	@echo ' '
-	$(EXEC) ./test_bed.out
 
 run: build
 	$(EXEC) ./$(TARGET).out ../data/house8.dat

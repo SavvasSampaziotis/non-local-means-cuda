@@ -51,7 +51,7 @@
   
   ioImg = matfile( pathImg );
   I     = ioImg.(strImgVar);
-  
+  I = I(1:50,1:50);
   %% PREPROCESS
   
   fprintf(' - normalizing image...\n')
@@ -71,11 +71,12 @@
   
   
   %% NON LOCAL MEANS
-  
   tic;
-  If = nonLocalMeans( J, patchSize, filtSigma, patchSigma );
-  toc
-  
+  for i=1:20
+      If = nonLocalMeans( J, patchSize, filtSigma, patchSigma );
+  end
+  t_=toc;
+  t_=t_/20
   
   %% PREPARE ADAPTIVE NLM INPUTS
   
@@ -103,11 +104,13 @@
   
   
   %% ADAPTIVE NON LOCAL MEANS
-    
+ 
   tic;
-  Ia = adaptNonLocalMeans( J, L, patchSize, ...
-                           adFiltSigma, patchSigma );
-  toc
+  for i=1:20
+    Ia = adaptNonLocalMeans( J, L, patchSize, adFiltSigma, patchSigma );
+  end
+  t_=toc;
+  t_=t_/20
   
   
   %% VISUALIZE RESULT

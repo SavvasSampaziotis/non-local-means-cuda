@@ -22,6 +22,11 @@ int main(int argc, char** argv)
 	float patchSigmaW = 1.66;
 	float sigma = 0.1f;
 
+
+	timeval startwtime, endwtime;
+	double calcTime;
+	double totalTime ;
+
 	char* filename;
 	if(argc == 2)
 	{
@@ -43,16 +48,13 @@ int main(int argc, char** argv)
 	read_dataset(&H, &W, &image_in, filename);
 	image_out = (float*) malloc(H*W*sizeof(float));
 
-	timeval startwtime, endwtime;
-	double calcTime;
-	double totalTime ;
 	
 	/////////////////////////////////////////////////////////////////////////////////////
-
+	// Run NLM
 	/////////////////////////////////////////////////////////////////////////////////////
 
 	gettimeofday(&startwtime, NULL);
-	// calcTime = nonLocalMeansCUDA(image_in, image_out, H,W, patch_H, patch_W, patchSigmaH, patchSigmaW, sigma);
+	calcTime = nonLocalMeansCUDA(image_in, image_out, H,W, patch_H, patch_W, patchSigmaH, patchSigmaW, sigma);
 	gettimeofday(&endwtime, NULL);
 	totalTime = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6 + endwtime.tv_sec - startwtime.tv_sec);
 
@@ -60,10 +62,10 @@ int main(int argc, char** argv)
 	printf("Total Time:\t%fsec\n", totalTime);
 	printf("Kernel Time:\t%fsec\n", calcTime);
 
-	// write_datfile(H,W,image_out, "./imout.bin.out");
+	write_datfile(H,W,image_out, "../data/filtered.bin.out");
 
 	/////////////////////////////////////////////////////////////////////////////////////
-
+	// Run NLM Adaptive
 	/////////////////////////////////////////////////////////////////////////////////////
 
 	float* hMat =(float*) malloc(H*W*sizeof(float));
@@ -85,7 +87,7 @@ int main(int argc, char** argv)
 	printf("Total Time:\t%fsec\n", totalTime);
 	printf("Kernel Time:\t%fsec\n", calcTime);
 	
-	write_datfile(H,W,image_out, "./imout_h.bin.out");
+	write_datfile(H,W,image_out, "../data/filtered_adapt_h.bin.out");
 
 
 	free(image_in);
